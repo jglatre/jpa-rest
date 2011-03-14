@@ -20,7 +20,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 
-import com.github.jparest.json.JsonMarshallingStrategy;
+import com.github.jparest.json.JsonMarshaller;
 import com.github.jparest.json.JsonQueryParser;
 import com.github.jparest.metadata.Model;
 
@@ -35,7 +35,7 @@ public class JpaRestController {
 	private EntityManager entityManager;
 
 	private QueryParser queryParser = new JsonQueryParser();          	//TODO inject
-	private Marshaller marshaller = new JsonMarshallingStrategy();		//TODO inject
+	private Marshaller marshaller = new JsonMarshaller();		//TODO inject
 	
 	public void setEntityManager(EntityManager entityManager) {
 		this.entityManager = entityManager;
