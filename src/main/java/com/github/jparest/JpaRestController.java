@@ -1,5 +1,7 @@
 package com.github.jparest;
 
+import static org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR;
+import static org.springframework.http.HttpStatus.NOT_FOUND;
 import static org.springframework.web.bind.annotation.RequestMethod.GET;
 
 import java.util.Collections;
@@ -11,7 +13,8 @@ import javax.persistence.TypedQuery;
 import javax.persistence.criteria.CriteriaBuilder;
 import javax.persistence.criteria.CriteriaQuery;
 
-import org.springframework.http.HttpStatus;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.util.ClassUtils;
@@ -29,6 +32,8 @@ import com.github.jparest.metadata.Model;
 @RequestMapping(value="/jparest/**", headers="Accept=application/json")
 @Controller
 public class JpaRestController {
+
+	private static final Log log = LogFactory.getLog(JpaRestController.class);
 	
 	@PersistenceContext
 	private EntityManager entityManager;
@@ -54,21 +59,26 @@ public class JpaRestController {
 	
  	@RequestMapping(method = GET, value = "{className}/count")
 	@ResponseBody
-	public String count(
+	public Object count(
 			@PathVariable String className,
 			@RequestParam(value = "criteria", required = false) String criteria) {
 
- 		Class<?> entityClass = findEntityClass(className);
-		CriteriaBuilder builder = entityManager.getCriteriaBuilder();
-		CriteriaQuery<Long> cq = builder.createQuery(Long.class);
- 		cq.select( builder.count( cq.from(entityClass) ) );
- 		
- 		if (criteria != null) {
- 			cq.where( queryParser.parsePredicate(criteria, builder, cq) );
- 		}
- 		 		
- 		long count = entityManager.createQuery(cq).getSingleResult();
- 		return String.valueOf(count);
+ 		try {
+			Class<?> entityClass = findEntityClass(className);
+			CriteriaBuilder builder = entityManager.getCriteriaBuilder();
+			CriteriaQuery<Long> cq = builder.createQuery(Long.class);
+			cq.select( builder.count( cq.from(entityClass) ) );
+			
+			if (criteria != null) {
+				cq.where( queryParser.parsePredicate(criteria, builder, cq) );
+			}
+			 		
+			long count = entityManager.createQuery(cq).getSingleResult();
+			return String.valueOf(count);
+		} 
+ 		catch (ClassNotFoundException e) {
+			return new ResponseEntity<String>("Unknown entity class name: " + className, NOT_FOUND);
+		}
     }
 
  	
@@ -80,8 +90,8 @@ public class JpaRestController {
  			@RequestParam(value = "select", required = false) String select
  			) {
  		
-		Class<?> entityClass = findEntityClass(className);
-		if (entityClass != null) {
+ 		try {
+ 			Class<?> entityClass = findEntityClass(className);
 			Object entity = entityManager.find(entityClass, id);
 			if (entity != null) {
 				List<Attribute> attrs = Collections.emptyList();
@@ -90,8 +100,17 @@ public class JpaRestController {
 				}
 				return marshaller.marshalObject( entity, attrs );
 			}
+			else {
+				return new ResponseEntity<String>("Unknown id: " + id, NOT_FOUND);
+			}
 		}
-		return new ResponseEntity<String>(HttpStatus.NOT_FOUND);
+ 		catch (ClassNotFoundException e) {
+			return new ResponseEntity<String>("Unknown entity class name: " + className, NOT_FOUND);
+ 		}
+ 		catch (Exception e) {
+			log.error("Unable to fulfill 'find' request: className=" + className, e);
+			return new ResponseEntity<String>( e.getMessage(), INTERNAL_SERVER_ERROR );
+ 		}
  	}
  	
  	
@@ -104,32 +123,18 @@ public class JpaRestController {
  			@RequestParam(value = "size", required = false) Integer size
  			) {
 
-		Class<?> entityClass = findEntityClass(className);
-		if (entityClass != null) {
-			TypedQuery<?> query;
-
-			if (criteria != null) {
-				CriteriaBuilder builder = entityManager.getCriteriaBuilder();
-				CriteriaQuery<?> criteriaQuery = queryParser.parse(criteria, builder, entityClass);
-				query = entityManager.createQuery(criteriaQuery);
-			}
-			else {
-				query = entityManager.createQuery("select o from " + className + " o", entityClass);
-			}
-			
-			if (page != null || size != null) {
-				int max = size == null ? 10 : size.intValue();
-	 			int first = page == null ? 0 : (page.intValue() - 1) * max;
-	 			query = query.setFirstResult(first).setMaxResults(max);
-	 		}
-
+ 		try {
+ 			Class<?> entityClass = findEntityClass(className);
+			TypedQuery<?> query = createQuery( criteria, entityClass, page, size );
  			List<?> result = query.getResultList();
  			return marshaller.marshalObject(result, null);
 		}
-		return new ResponseEntity<String>(HttpStatus.NOT_FOUND);
+ 		catch (ClassNotFoundException e) {
+ 			return new ResponseEntity<String>(NOT_FOUND);
+ 		}
  	}
  	
-
+ 	
 	@RequestMapping(method = GET, value = "metadata")
 	@ResponseBody
 	public Object getMetadata() {
@@ -138,8 +143,8 @@ public class JpaRestController {
 			return marshaller.marshalObject(model.getEntityNames(), null);
 		} 
 		catch (Exception e) {
-			e.printStackTrace();
-			return new ResponseEntity<String>(HttpStatus.NOT_FOUND);		
+			log.error("Unable to fulfill metadata request" , e);
+			return new ResponseEntity<String>(INTERNAL_SERVER_ERROR);		
 		}
 	}
 
@@ -149,12 +154,18 @@ public class JpaRestController {
 	public Object getMetadata(
 			@PathVariable String className) {
 		
-		Class<?> entityClass = findEntityClass(className);
-		if (entityClass != null) {
+		try {
+			Class<?> entityClass = findEntityClass(className);
 			Model model = new Model(entityManager.getMetamodel());
 			return marshaller.marshalObject( model.getEntity(entityClass), null );
 		}
-		return new ResponseEntity<String>(HttpStatus.NOT_FOUND);		
+		catch (ClassNotFoundException e) {
+			return new ResponseEntity<String>(NOT_FOUND);		
+		}
+		catch (Exception e) {
+			log.error("Unable to fulfill metadata request: className=" + className, e);
+			return new ResponseEntity<String>(INTERNAL_SERVER_ERROR);
+		}
 	}
 	
  	
@@ -170,21 +181,41 @@ public class JpaRestController {
 			Model model = new Model(entityManager.getMetamodel());
 			return marshaller.marshalObject( model.getEntity(entityClass).getField(field), null );
 		}
+		catch (ClassNotFoundException e) {
+			return new ResponseEntity<String>(NOT_FOUND);		
+		}
 		catch (Exception e) {
-			e.printStackTrace();
-			return new ResponseEntity<String>(HttpStatus.NOT_FOUND);		
+			log.error("Unable to fulfill metadata request: className=" + className, e);
+			return new ResponseEntity<String>(INTERNAL_SERVER_ERROR);
 		}
 	}
 	
  	
- 	protected Class<?> findEntityClass(String className) {
+ 	protected Class<?> findEntityClass(String className) throws ClassNotFoundException {
 		String fullClassName = className.contains(".") ? className : defaultDomainPackage + className;
- 		try {
-			return ClassUtils.forName( fullClassName, null );
-		} 
- 		catch (ClassNotFoundException e) {
- 			return null;
-		}
+		return ClassUtils.forName( fullClassName, null );
  	}
  	
+ 	
+ 	protected TypedQuery<?> createQuery(String criteria, Class<?> entityClass, Integer page, Integer size) {
+		TypedQuery<?> query;
+
+		if (StringUtils.hasLength(criteria)) {
+			CriteriaBuilder builder = entityManager.getCriteriaBuilder();
+			CriteriaQuery<?> criteriaQuery = queryParser.parse(criteria, builder, entityClass);
+			query = entityManager.createQuery(criteriaQuery);
+		}
+		else {
+			query = entityManager.createQuery("select o from " + entityClass.getSimpleName() + " o", entityClass);
+		} 
+		
+		if (page != null || size != null) {
+			int max = size == null ? 10 : size.intValue();
+ 			int first = page == null ? 0 : (page.intValue() - 1) * max;
+ 			query = query.setFirstResult(first).setMaxResults(max);
+ 		}
+		
+		return query;
+ 	}
+
 }
