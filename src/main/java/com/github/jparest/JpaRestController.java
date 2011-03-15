@@ -15,6 +15,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.util.ClassUtils;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -28,8 +29,6 @@ import com.github.jparest.metadata.Model;
 @RequestMapping(value="/jparest/**", headers="Accept=application/json")
 @Controller
 public class JpaRestController {
-
-	private static final String DOMAIN_PACKAGE = "com.github.mitote.access";
 	
 	@PersistenceContext
 	private EntityManager entityManager;
@@ -37,10 +36,21 @@ public class JpaRestController {
 	private QueryParser queryParser = new JsonQueryParser();          	//TODO inject
 	private Marshaller marshaller = new JsonMarshaller();		//TODO inject
 	
+	private String defaultDomainPackage;
+	
+	
 	public void setEntityManager(EntityManager entityManager) {
 		this.entityManager = entityManager;
 	}
 	
+	
+	public void setDefaultDomainPackage(String defaultDomainPackage) {
+		this.defaultDomainPackage = defaultDomainPackage;
+		if (StringUtils.hasLength(this.defaultDomainPackage) && !this.defaultDomainPackage.endsWith(".")) {
+			this.defaultDomainPackage += ".";
+		}
+	}
+
 	
  	@RequestMapping(method = GET, value = "{className}/count")
 	@ResponseBody
@@ -168,15 +178,13 @@ public class JpaRestController {
 	
  	
  	protected Class<?> findEntityClass(String className) {
+		String fullClassName = className.contains(".") ? className : defaultDomainPackage + className;
  		try {
-			return ClassUtils.forName( DOMAIN_PACKAGE + "." + className, null );
+			return ClassUtils.forName( fullClassName, null );
 		} 
  		catch (ClassNotFoundException e) {
  			return null;
 		}
- 		catch (LinkageError e) {
- 			return null;
- 		}
  	}
  	
 }
