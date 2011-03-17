@@ -15,6 +15,7 @@ import javax.persistence.criteria.CriteriaQuery;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
@@ -25,8 +26,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 
-import com.github.jparest.json.JsonMarshaller;
-import com.github.jparest.json.JsonQueryParser;
 import com.github.jparest.metadata.Model;
 
 
@@ -39,8 +38,11 @@ public class JpaRestController {
 	@PersistenceContext
 	private EntityManager entityManager;
 
-	private QueryParser queryParser = new JsonQueryParser();          	//TODO inject
-	private Marshaller marshaller = new JsonMarshaller();		//TODO inject
+	@Autowired 
+	private QueryParser queryParser; 
+
+	@Autowired 
+	private Marshaller marshaller;
 	
 	private String defaultDomainPackage;
 	

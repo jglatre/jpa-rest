@@ -13,6 +13,9 @@ import javax.persistence.criteria.Root;
 import javax.persistence.criteria.Selection;
 import javax.persistence.criteria.CriteriaBuilder.In;
 
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.stereotype.Component;
+
 import com.github.jparest.Attribute;
 import com.github.jparest.QueryParser;
 import com.github.jparest.Attribute.Type;
@@ -20,6 +23,8 @@ import com.github.jparest.Attribute.Type;
 import flexjson.JSONTokener;
 
 
+@Component
+@Qualifier("json")
 public class JsonQueryParser implements QueryParser {
 
 	public static final String WHERE = "where";

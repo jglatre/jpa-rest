@@ -4,6 +4,9 @@ import java.lang.reflect.Array;
 import java.util.Collection;
 import java.util.List;
 
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.stereotype.Component;
+
 import com.github.jparest.Attribute;
 import com.github.jparest.Marshaller;
 
@@ -11,6 +14,8 @@ import flexjson.JSONSerializer;
 import flexjson.transformer.AbstractTransformer;
 
 
+@Component
+@Qualifier("json")
 public class JsonMarshaller implements Marshaller {
 
 	private boolean pretty = true;
