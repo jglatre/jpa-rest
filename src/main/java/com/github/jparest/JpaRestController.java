@@ -26,7 +26,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 
-import com.github.jparest.metadata.Model;
+import com.github.jparest.metadata.MetamodelWrapper;
 
 
 @RequestMapping(value="/jparest/**", headers="Accept=application/json")
@@ -45,6 +45,8 @@ public class JpaRestController {
 	private Marshaller marshaller;
 	
 	private String defaultDomainPackage;
+
+	private MetamodelWrapper metamodel;
 	
 	
 	public void setEntityManager(EntityManager entityManager) {
@@ -153,8 +155,7 @@ public class JpaRestController {
 	@ResponseBody
 	public Object getMetadata() {
 		try {
-			Model model = new Model(entityManager.getMetamodel());
-			return marshaller.marshalObject(model.getEntityNames(), null);
+			return marshaller.marshalObject( getMetamodel().getEntityNames(), null );
 		} 
 		catch (Exception e) {
 			log.error("Unable to fulfill metadata request" , e);
@@ -170,8 +171,7 @@ public class JpaRestController {
 		
 		try {
 			Class<?> entityClass = findEntityClass(className);
-			Model model = new Model(entityManager.getMetamodel());
-			return marshaller.marshalObject( model.getEntity(entityClass), null );
+			return marshaller.marshalObject( getMetamodel().getEntity(entityClass), null );
 		}
 		catch (ClassNotFoundException e) {
 			return new ResponseEntity<String>(NOT_FOUND);		
@@ -192,8 +192,7 @@ public class JpaRestController {
 		
 		try {
 			Class<?> entityClass = findEntityClass(className);
-			Model model = new Model(entityManager.getMetamodel());
-			return marshaller.marshalObject( model.getEntity(entityClass).getField(field), null );
+			return marshaller.marshalObject( getMetamodel().getEntity(entityClass).getField(field), null );
 		}
 		catch (ClassNotFoundException e) {
 			return new ResponseEntity<String>(NOT_FOUND);		
@@ -232,4 +231,11 @@ public class JpaRestController {
 		return query;
  	}
 
+ 	
+ 	protected MetamodelWrapper getMetamodel() {
+ 		if (metamodel == null) {
+			metamodel = new MetamodelWrapper( entityManager.getMetamodel() );
+		}
+		return metamodel;
+ 	}
 }
