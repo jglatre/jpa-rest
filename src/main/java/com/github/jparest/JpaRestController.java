@@ -52,6 +52,16 @@ public class JpaRestController {
 	}
 	
 	
+	public void setQueryParser(QueryParser queryParser) {
+		this.queryParser = queryParser;
+	}
+	
+	
+	public void setMarshaller(Marshaller marshaller) {
+		this.marshaller = marshaller;
+	}
+	
+	
 	@Value("${jparest.defaultDomainPackage}")
 	public void setDefaultDomainPackage(String defaultDomainPackage) {
 		this.defaultDomainPackage = defaultDomainPackage;
