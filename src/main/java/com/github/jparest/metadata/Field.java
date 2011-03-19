@@ -15,7 +15,10 @@ public class Field<T extends Attribute<?,?>> {
 	
 	public Field(T attr) {
 		this.attr = attr;
-		this.constraints = new Constraints( (AnnotatedElement) attr.getJavaMember() );
+		
+		if (attr.getJavaMember() instanceof AnnotatedElement) {
+			this.constraints = new Constraints( (AnnotatedElement) attr.getJavaMember() );
+		}
 	}
 
 	public String getName() {
