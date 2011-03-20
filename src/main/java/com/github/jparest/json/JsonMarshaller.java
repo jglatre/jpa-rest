@@ -8,7 +8,9 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 
 import com.github.jparest.Attribute;
+import com.github.jparest.DataResponse;
 import com.github.jparest.Marshaller;
+import com.github.jparest.Response;
 
 import flexjson.JSONSerializer;
 import flexjson.transformer.AbstractTransformer;
@@ -20,6 +22,16 @@ public class JsonMarshaller implements Marshaller {
 
 	private boolean pretty = true;
 	
+	
+	public String marshal(Response response) {
+		JSONSerializer serializer = new JSONSerializer().exclude("*.class").prettyPrint(pretty);
+		if (response instanceof DataResponse) {
+			DataResponse<?> dataResponse = (DataResponse<?>) response;
+			configureSerializer( serializer, "result", dataResponse.getAttributes() );
+		}
+		return serializer.serialize(response);
+	}
+
 	
 	@Override
 	public String marshalObject(Object item, List<Attribute> attributes) {

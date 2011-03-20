@@ -1,7 +1,8 @@
 package com.github.jparest;
 
+import static com.github.jparest.ErrorResponse.ID_NOT_FOUND;
+import static com.github.jparest.ErrorResponse.NOT_AN_ENTITY_NAME;
 import static org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR;
-import static org.springframework.http.HttpStatus.NOT_FOUND;
 import static org.springframework.web.bind.annotation.RequestMethod.GET;
 
 import java.util.Collections;
@@ -26,6 +27,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 
+import com.github.jparest.metadata.Entity;
+import com.github.jparest.metadata.Field;
 import com.github.jparest.metadata.MetamodelWrapper;
 
 
@@ -77,8 +80,10 @@ public class JpaRestController {
 	@ResponseBody
 	public Object count(
 			@PathVariable String className,
-			@RequestParam(value = "criteria", required = false) String criteria) {
-
+			@RequestParam(value = "criteria", required = false) String criteria
+			) {
+ 		Response response = null;
+ 		
  		try {
 			Class<?> entityClass = findEntityClass(className);
 			CriteriaBuilder builder = entityManager.getCriteriaBuilder();
@@ -90,11 +95,13 @@ public class JpaRestController {
 			}
 			 		
 			long count = entityManager.createQuery(cq).getSingleResult();
-			return String.valueOf(count);
+			response = new ResultResponse<Long>( count );
 		} 
  		catch (ClassNotFoundException e) {
-			return new ResponseEntity<String>("Unknown entity class name: " + className, NOT_FOUND);
+ 			response = new ErrorResponse(NOT_AN_ENTITY_NAME, className);
 		}
+ 		
+ 		return marshaller.marshal(response);
     }
 
  	
@@ -105,6 +112,7 @@ public class JpaRestController {
  			@PathVariable Long id,
  			@RequestParam(value = "select", required = false) String select
  			) {
+ 		Response response = null;
  		
  		try {
  			Class<?> entityClass = findEntityClass(className);
@@ -114,19 +122,21 @@ public class JpaRestController {
 				if (select != null) {
 					attrs = queryParser.parseSelect(select);
 				}
-				return marshaller.marshalObject( entity, attrs );
+				response = new DataResponse<Object>( entity, attrs );
 			}
 			else {
-				return new ResponseEntity<String>("Unknown id: " + id, NOT_FOUND);
+				response = new ErrorResponse(ID_NOT_FOUND, id);
 			}
 		}
  		catch (ClassNotFoundException e) {
-			return new ResponseEntity<String>("Unknown entity class name: " + className, NOT_FOUND);
+ 			response = new ErrorResponse(NOT_AN_ENTITY_NAME, className);
  		}
  		catch (Exception e) {
 			log.error("Unable to fulfill 'find' request: className=" + className, e);
 			return new ResponseEntity<String>( e.getMessage(), INTERNAL_SERVER_ERROR );
  		}
+ 		
+ 		return marshaller.marshal(response);
  	}
  	
  	
@@ -138,16 +148,19 @@ public class JpaRestController {
  			@RequestParam(value = "page", required = false) Integer page, 
  			@RequestParam(value = "size", required = false) Integer size
  			) {
+ 		Response response = null;
 
  		try {
  			Class<?> entityClass = findEntityClass(className);
 			TypedQuery<?> query = createQuery( criteria, entityClass, page, size );
  			List<?> result = query.getResultList();
- 			return marshaller.marshalObject(result, null);
+ 			response = new DataResponse<List<?>>( result, null );
 		}
  		catch (ClassNotFoundException e) {
- 			return new ResponseEntity<String>(NOT_FOUND);
+ 			response = new ErrorResponse(NOT_AN_ENTITY_NAME, className);
  		}
+ 		
+ 		return marshaller.marshal(response);
  	}
  	
  	
@@ -155,7 +168,8 @@ public class JpaRestController {
 	@ResponseBody
 	public Object getMetadata() {
 		try {
-			return marshaller.marshalObject( getMetamodel().getEntityNames(), null );
+			Response response = new ResultResponse<List<String>>( getMetamodel().getEntityNames() );
+	 		return marshaller.marshal(response);
 		} 
 		catch (Exception e) {
 			log.error("Unable to fulfill metadata request" , e);
@@ -167,19 +181,23 @@ public class JpaRestController {
 	@RequestMapping(method = GET, value = "metadata/{className}")
 	@ResponseBody
 	public Object getMetadata(
-			@PathVariable String className) {
+			@PathVariable String className
+			) {
+		Response response;
 		
 		try {
 			Class<?> entityClass = findEntityClass(className);
-			return marshaller.marshalObject( getMetamodel().getEntity(entityClass), null );
+			response = new ResultResponse<Entity>( getMetamodel().getEntity(entityClass) );
 		}
 		catch (ClassNotFoundException e) {
-			return new ResponseEntity<String>(NOT_FOUND);		
+			response = new ErrorResponse(NOT_AN_ENTITY_NAME, className);
 		}
 		catch (Exception e) {
 			log.error("Unable to fulfill metadata request: className=" + className, e);
 			return new ResponseEntity<String>(INTERNAL_SERVER_ERROR);
 		}
+		
+ 		return marshaller.marshal(response);
 	}
 	
  	
@@ -189,18 +207,22 @@ public class JpaRestController {
 			@PathVariable String className,
 			@PathVariable String field
 			) {
+		Response response;
 		
 		try {
 			Class<?> entityClass = findEntityClass(className);
-			return marshaller.marshalObject( getMetamodel().getEntity(entityClass).getField(field), null );
+			Entity entity = getMetamodel().getEntity(entityClass);
+			response = new ResultResponse<Field<?>>( entity.getField(field) );
 		}
 		catch (ClassNotFoundException e) {
-			return new ResponseEntity<String>(NOT_FOUND);		
+			response = new ErrorResponse(NOT_AN_ENTITY_NAME, className);
 		}
 		catch (Exception e) {
 			log.error("Unable to fulfill metadata request: className=" + className, e);
 			return new ResponseEntity<String>(INTERNAL_SERVER_ERROR);
 		}
+		
+ 		return marshaller.marshal(response);
 	}
 	
  	
