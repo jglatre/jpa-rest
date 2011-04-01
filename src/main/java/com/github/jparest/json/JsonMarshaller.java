@@ -9,8 +9,10 @@ import org.springframework.stereotype.Component;
 
 import com.github.jparest.Attribute;
 import com.github.jparest.DataResponse;
+import com.github.jparest.ErrorResponse;
 import com.github.jparest.Marshaller;
 import com.github.jparest.Response;
+import com.github.jparest.ResultResponse;
 
 import flexjson.JSONSerializer;
 import flexjson.transformer.AbstractTransformer;
@@ -25,10 +27,23 @@ public class JsonMarshaller implements Marshaller {
 	
 	public String marshal(Response response) {
 		JSONSerializer serializer = new JSONSerializer().exclude("*.class").prettyPrint(pretty);
-		if (response instanceof DataResponse) {
-			DataResponse<?> dataResponse = (DataResponse<?>) response;
-			configureSerializer( serializer, "result", dataResponse.getAttributes() );
+		serializer.include("ok");
+
+		if (response instanceof ResultResponse) {
+			serializer.include("result");
+
+			if (response instanceof DataResponse) {
+				DataResponse<?> dataResponse = (DataResponse<?>) response;
+				List<Attribute> attributes = dataResponse.getAttributes();
+				if (attributes != null && !attributes.isEmpty()) {
+					configureSerializer( serializer, "result", attributes );
+				}
+			}
 		}
+		else if (response instanceof ErrorResponse) {
+			serializer.include("error", "args");
+		}
+		
 		return serializer.serialize(response);
 	}
 
