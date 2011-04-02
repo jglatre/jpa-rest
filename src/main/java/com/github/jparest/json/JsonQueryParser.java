@@ -69,12 +69,15 @@ public class JsonQueryParser implements QueryParser {
 	}
 	
 
-
-	@Override
 	public List<Attribute> parseSelect(String select) {
 		return createAttributes( (List<?>) new JSONTokener(select).nextValue() );
 	}
 	
+	
+	public Map<?, ?> unmarshallEntity(String serializedEntity) {
+		return (Map<?, ?>) new JSONTokener(serializedEntity).nextValue();
+	}
+
 	//---------------------------------------------------------------------------
 
 	private List<Attribute> createAttributes(List<?> json) {
