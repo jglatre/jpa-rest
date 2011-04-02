@@ -1,6 +1,7 @@
 package com.github.jparest;
 
 import java.util.List;
+import java.util.Map;
 
 import javax.persistence.criteria.CriteriaBuilder;
 import javax.persistence.criteria.CriteriaQuery;
@@ -19,5 +20,7 @@ public interface QueryParser {
 	Predicate parsePredicate(String query, CriteriaBuilder builder,	CriteriaQuery<?> criteriaQuery);
 	
 	List<Attribute> parseSelect(String select);
+	
+	Map<?, ?> unmarshallEntity(String serializedEntity);
 
 }
